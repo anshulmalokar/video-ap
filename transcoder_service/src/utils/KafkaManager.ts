@@ -16,7 +16,7 @@ class KafkaManager {
   private kafka_consumer: Consumer;
   private kafka;
   private constructor() {
-    const ca_file_path = path.resolve(__dirname, "../../certs/ca.pem");
+    const ca_file_path = path.join(__dirname, "../../certs/ca.pem");
     console.log(ca_file_path);
     const config: KafkaConfig = {
       clientId: "my-app",
@@ -43,12 +43,8 @@ class KafkaManager {
       });
       await this.kafka_consumer.run({
         eachMessage: async ({
-          topic,
-          partition,
           message,
         }: {
-          topic: string;
-          partition: any;
           message: Message;
         }) => {
           const value = message.value?.toString();
@@ -56,8 +52,8 @@ class KafkaManager {
         },
       });
     } catch (error) {
-      throw new Error("");
       console.log(error);
+      throw new Error("");
     }
   }
 
