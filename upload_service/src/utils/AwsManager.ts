@@ -34,6 +34,67 @@ export class AwsService {
     return this.instance;
   }
 
+  public async getMultiPartUploadId(file: string){
+    try{
+      const multi_parts_uppload_params = {
+        Bucket: process.env.AWS_BUCKET as string,
+        Key: `__output/${file}`,
+        // ACL: "public-read",
+        ContentType: ms.lookup(file as unknown as string) as string,
+      };
+  
+      const multiPartParams = await s3
+          .createMultipartUpload(multi_parts_uppload_params)
+          .promise();
+  
+      return multiPartParams.UploadId;
+    }catch(e){
+      console.log(e);
+      throw new Error();
+    }
+  }
+
+  public async uploadChunk(id: string,key: string,part_number: number,chunk: Buffer){
+    try{
+      const part_params = {
+        Bucket: process.env.AWS_BUCKET as string,
+        Key: key as string,
+        UploadId: id as string,
+        PartNumber: part_number as number,
+        Body: chunk,
+        ContentLength: chunk.length,
+      };
+      const data = await s3.uploadPart(part_params).promise();
+      console.log(`Uploaded part ${part_number}: ${data.ETag}`);
+      return {
+        ETag: data.ETag,
+        PartNumber: part_number,
+      }   
+    }catch(e){
+      console.log(e);
+      throw new Error();
+    }
+  }
+
+  public async completeMultipartUpload(key: string,id: string,uploaded_tags: []){
+    try{
+      const completeParams = {
+        Bucket: process.env.AWS_BUCKET as string,
+        Key: key as string,
+        UploadId: id as string,
+        MultipartUpload: { Parts: uploaded_tags },
+      };
+      console.log("Completing MultiPart Upload");
+      const completeRes = await s3
+        .completeMultipartUpload(completeParams)
+        .promise();
+      return completeRes.ETag;
+    }catch(e){
+      console.log(e);
+      throw new Error();
+    }   
+  }
+
   public async multiPartUpload(file_path: string) {
     const multi_parts_uppload_params = {
       Bucket: process.env.AWS_BUCKET as string,
@@ -139,23 +200,3 @@ export class AwsService {
     }
   }
 }
-
-// interface UploadPartRequest {
-//   Body?: Body;
-//   Bucket: BucketName;
-//   ContentLength?: ContentLength;
-//   ContentMD5?: ContentMD5;
-//   ChecksumAlgorithm?: ChecksumAlgorithm;
-//   ChecksumCRC32?: ChecksumCRC32;
-//   ChecksumCRC32C?: ChecksumCRC32C;
-//   ChecksumSHA1?: ChecksumSHA1;
-//   ChecksumSHA256?: ChecksumSHA256;
-//   Key: ObjectKey;
-//   PartNumber: PartNumber;
-//   UploadId: MultipartUploadId;
-//   SSECustomerAlgorithm?: SSECustomerAlgorithm;
-//   SSECustomerKey?: SSECustomerKey;
-//   SSECustomerKeyMD5?: SSECustomerKeyMD5;
-//   RequestPayer?: RequestPayer;
-//   ExpectedBucketOwner?: AccountId;
-// }
