@@ -3,7 +3,7 @@ import { AwsService } from "../utils/AwsService";
 
 export const getPreSignedUrl = async(req: Request,res: Response) => {
     try{
-        const key = req.params.key;
+        const key = req.query.key as string;
         const _instance = AwsService.getInstance();
         const preSignedUrl = await _instance.getPreSignedUrl(key);
         return res.status(200).json({

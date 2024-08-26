@@ -1,12 +1,13 @@
 "use client";
 import React from "react";
 import { signIn, signOut, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 type Props = {};
 
 export default function Auth({}: Props) {
   const { data } = useSession();
   console.log(data);
-
+  const router = useRouter();
   const signOutApp = () => {
     console.log("Signing out from google");
     signOut();
@@ -16,6 +17,11 @@ export default function Auth({}: Props) {
     console.log("Siggning in from google");
     signIn("google");
   };
+
+  if(data){
+    router.push('/upload')
+  }
+  
   return (
     <>
       <div className="m-10">

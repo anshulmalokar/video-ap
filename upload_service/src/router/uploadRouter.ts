@@ -5,10 +5,14 @@ import { completeMultipartUpload, doMultiPartUpload, startMultiPartUpload, uploa
 const upload = multer();
 const upload_router = express.Router();
 
-upload_router.post('/',upload.single('file'),upload_controller)
+// upload_router.post('/',upload.single('file'),upload_controller)
+upload_router.get("/",(req,res) => {
+    return res.json({
+        message: "Hello World"
+    });
+})
 upload_router.post('/multipart',doMultiPartUpload);
-
-upload_router.post('/getUplloadMultipartId',upload.none(),startMultiPartUpload);
+upload_router.post('/getUplloadMultipartId',startMultiPartUpload);
 upload_router.post('/uploadChunk',upload.single('chunk'),uploadChunkController);
 upload_router.post('/uploadComplete',completeMultipartUpload);
 

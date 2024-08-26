@@ -10,6 +10,12 @@ const PORT = process.env.PORT || 8003;
 
 app.use('/watch',watch_router);
 
+app.get("/",(req,res) => {
+    return res.status(200).json({
+        msg: "Hello"
+    })
+});
+
 app.listen(PORT,() => {
     console.log(`Server is running on port ${PORT}`);
 })

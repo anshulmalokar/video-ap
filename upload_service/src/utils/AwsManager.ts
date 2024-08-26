@@ -34,13 +34,11 @@ export class AwsService {
     return this.instance;
   }
 
-  public async getMultiPartUploadId(file: string){
+  public async getMultiPartUploadId(file: string,key: string){
     try{
       const multi_parts_uppload_params = {
         Bucket: process.env.AWS_BUCKET as string,
-        Key: `__output/${file}`,
-        // ACL: "public-read",
-        ContentType: ms.lookup(file as unknown as string) as string,
+        Key: key as string,
       };
   
       const multiPartParams = await s3
@@ -62,7 +60,6 @@ export class AwsService {
         UploadId: id as string,
         PartNumber: part_number as number,
         Body: chunk,
-        ContentLength: chunk.length,
       };
       const data = await s3.uploadPart(part_params).promise();
       console.log(`Uploaded part ${part_number}: ${data.ETag}`);
@@ -76,13 +73,16 @@ export class AwsService {
     }
   }
 
-  public async completeMultipartUpload(key: string,id: string,uploaded_tags: []){
+  public async completeMultipartUpload(key: string,id: string,uploaded_tags: {
+    ETag: string,
+    PartNumber: number,
+  }[]){
     try{
       const completeParams = {
         Bucket: process.env.AWS_BUCKET as string,
         Key: key as string,
         UploadId: id as string,
-        MultipartUpload: { Parts: uploaded_tags },
+        MultipartUpload: {Parts: uploaded_tags}
       };
       console.log("Completing MultiPart Upload");
       const completeRes = await s3
@@ -111,7 +111,10 @@ export class AwsService {
       const file_size = fs.statSync(file_path).size;
       const chunk_size = 5 * 1024 * 1024;
       const chunk_count = Math.ceil(file_size / chunk_size);
-      const uploaded_tags = [];
+      const uploaded_tags:{
+        ETag: string,
+        PartNumber: number,
+      }[] = [];
       for (let i = 0; i < chunk_count; i++) {
         const start = i * chunk_count;
         const end = Math.min(start + chunk_size, file_size);
@@ -126,7 +129,7 @@ export class AwsService {
         const data = await s3.uploadPart(part_params).promise();
         console.log(`Uploaded part ${i + 1}: ${data.ETag}`);
         uploaded_tags.push({
-          ETag: data.ETag,
+          ETag: data.ETag as string,
           PartNumber: i + 1,
         });
       }
