@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { AwsService } from "../utils/AwsManager";
 import path from "path";
+import prisma from "../db";
 
 export const doMultiPartUpload = async (req: Request, res: Response) => {
   try {
@@ -80,57 +81,71 @@ export const doMultiPartUpload = async (req: Request, res: Response) => {
 //   }
 // };
 
-
-
-export const startMultiPartUpload = async (req: Request,res: Response) => {
-  try{
+export const startMultiPartUpload = async (req: Request, res: Response) => {
+  try {
     const key = req.body.key;
     const uploadId = await AwsService.getInstance().createMultiPartUpload(key);
     console.log(uploadId);
-    return res.status(200).json({uploadId});
-  }catch(e){
+    return res.status(200).json({ uploadId });
+  } catch (e) {
     return res.status(500).json({
-      message: "Internal Server Error"
-    })
+      message: "Internal Server Error",
+    });
   }
 };
 
-
-export const getPreSignedUrlForPart = async(req: Request,res: Response) => {
-  try{
+export const getPreSignedUrlForPart = async (req: Request, res: Response) => {
+  try {
     const key = req.body.key;
     const uploadId = req.body.uploadId;
     const partNumber = req.body.partNumber;
-    const url = await AwsService.getInstance().generatePreSignedUrlForMultiPartUpload(key,uploadId,partNumber);
+    const url =
+      await AwsService.getInstance().generatePreSignedUrlForMultiPartUpload(
+        key,
+        uploadId,
+        partNumber
+      );
     return res.status(200).json({
-      url
+      url,
     });
-  }catch(e){
+  } catch (e) {
     return res.status(500).json({
-      message: "Internal Server Error"
+      message: "Internal Server Error",
     });
   }
-}
+};
 
-export const  completeMultipartUpload = async(req: Request, res: Response) => {
-  try{
+export const completeMultipartUpload = async (req: Request, res: Response) => {
+  try {
     const key = req.body.key;
     const uploadId = req.body.uploadId;
-    const uploadedTags:{
+    const uploadedTags: {
       ETag: string;
       PartNo: number;
-  }[] = req.body.uploadedTags;
-    await AwsService.getInstance().completeMultiPartUploadWithPreSignedUrl(
-      key,
-      uploadId,
-      uploadedTags
-    );
+    }[] = req.body.uploadedTags;
+    const title = req.body.title;
+    const description = req.body.description;
+    const author = req.body.author;
+    const url: string =
+      (await AwsService.getInstance().completeMultiPartUploadWithPreSignedUrl(
+        key,
+        uploadId,
+        uploadedTags
+      )) as unknown as string;
+    await prisma.videoData.create({
+      data: {
+        title,
+        description,
+        author,
+        url,
+      },
+    });
     return res.status(200).json({
-      message: "Upload Completed Successfylly"
-    })
-  }catch(e){
+      message: "Upload Completed Successfylly",
+    });
+  } catch (e) {
     return res.status(500).json({
-      message: "Internal Server Error"
-    })
+      message: "Internal Server Error",
+    });
   }
-}
+};

@@ -5,7 +5,9 @@ type Props = {};
 
 export default function UploadForm({}: Props) {
   const [file, setFile] = useState<FileList | null>();
-
+  const [author,setAuthor] = useState("");
+  const [title,setTitle] = useState("");
+  const [description,setDescription] = useState("");
   async function uploadPart(
     fileChunk: Blob,
     presignedUrl: string,
@@ -91,6 +93,9 @@ export default function UploadForm({}: Props) {
           key,
           uploadId,
           uploadedTags: response_chunk_data,
+          title,
+          description,
+          author
         }
       );
     } else {
@@ -103,7 +108,34 @@ export default function UploadForm({}: Props) {
       onSubmit={(e) => {
         submitForm(e);
       }}
+      className="flex flex-col"
     >
+      <div className="mb-4">
+        <input type="text"
+               name="title"
+               placeholder="Title"
+               value={title}
+               onChange={(e) => setTitle(e.target.value)}
+               required
+               className="text-black px-3 py-2 w-full border rounded-md focus:outline-none focus:border-blue-500" />
+      </div>
+      <div className="mb-4">
+        <input type="text"
+               name="description"
+               placeholder="Description"
+               value={description}
+               onChange={(e) => setDescription(e.target.value)}
+               className="text-black px-3 py-2 w-full border rounded-md focus:outline-none focus:border-blue-500" />
+      </div>
+      <div className="mb-4">
+        <input type="text"
+               name="author"
+               placeholder="Author"
+               value={author}
+               onChange={(e) => setAuthor(e.target.value)}
+               required
+               className="text-black px-3 py-2 w-full border rounded-md focus:outline-none focus:border-blue-500" />
+      </div>
       <input type="file" onChange={(e) => setFile(e.target.files)} />
       <button className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 mb-2">
         Upload

@@ -254,7 +254,8 @@ export class AwsService {
       const completeMultipartUploadCommand = new CompleteMultipartUploadCommand(
         completeUploadInput
       );
-      await client.send(completeMultipartUploadCommand);
+      const respons = await client.send(completeMultipartUploadCommand);
+      return respons.Location;
     } catch (e) {
       console.log(e);
       throw new Error();
