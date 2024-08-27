@@ -2,6 +2,9 @@ import {
   S3Client,
   GetObjectCommand,
   PutObjectCommand,
+  CreateMultipartUploadCommand,
+  UploadPartCommand,
+  CompleteMultipartUploadCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import dotenv from "dotenv";
@@ -34,26 +37,31 @@ export class AwsService {
     return this.instance;
   }
 
-  public async getMultiPartUploadId(file: string,key: string){
-    try{
+  public async getMultiPartUploadId(file: string, key: string) {
+    try {
       const multi_parts_uppload_params = {
         Bucket: process.env.AWS_BUCKET as string,
-        Key: key as string,
+        Key: key,
+        ContentType: ms.lookup(file) as string,
       };
-  
+      console.log("Starting the process of multi_part_upload");
       const multiPartParams = await s3
-          .createMultipartUpload(multi_parts_uppload_params)
-          .promise();
-  
+        .createMultipartUpload(multi_parts_uppload_params)
+        .promise();
       return multiPartParams.UploadId;
-    }catch(e){
+    } catch (e) {
       console.log(e);
       throw new Error();
     }
   }
 
-  public async uploadChunk(id: string,key: string,part_number: number,chunk: Buffer){
-    try{
+  public async uploadChunk(
+    id: string,
+    key: string,
+    part_number: number,
+    chunk: Buffer
+  ) {
+    try {
       const part_params = {
         Bucket: process.env.AWS_BUCKET as string,
         Key: key as string,
@@ -66,40 +74,45 @@ export class AwsService {
       return {
         ETag: data.ETag,
         PartNumber: part_number,
-      }   
-    }catch(e){
+      };
+    } catch (e) {
       console.log(e);
       throw new Error();
     }
   }
 
-  public async completeMultipartUpload(key: string,id: string,uploaded_tags: {
-    ETag: string,
-    PartNumber: number,
-  }[]){
-    try{
+  public async completeMultipartUpload(
+    key: string,
+    id: string,
+    uploaded_tags: {
+      ETag: string;
+      PartNumber: number;
+    }[]
+  ) {
+    try {
+      console.log({ Parts: uploaded_tags });
       const completeParams = {
         Bucket: process.env.AWS_BUCKET as string,
         Key: key as string,
         UploadId: id as string,
-        MultipartUpload: {Parts: uploaded_tags}
+        MultipartUpload: { Parts: uploaded_tags },
       };
       console.log("Completing MultiPart Upload");
       const completeRes = await s3
         .completeMultipartUpload(completeParams)
         .promise();
       return completeRes.ETag;
-    }catch(e){
+    } catch (e) {
       console.log(e);
       throw new Error();
-    }   
+    }
   }
 
   public async multiPartUpload(file_path: string) {
     const multi_parts_uppload_params = {
       Bucket: process.env.AWS_BUCKET as string,
       Key: "trial-key",
-      // ACL: "public-read",
+      ACL: "public-read",
       ContentType: ms.lookup(file_path as unknown as string) as string,
     };
 
@@ -111,9 +124,9 @@ export class AwsService {
       const file_size = fs.statSync(file_path).size;
       const chunk_size = 5 * 1024 * 1024;
       const chunk_count = Math.ceil(file_size / chunk_size);
-      const uploaded_tags:{
-        ETag: string,
-        PartNumber: number,
+      const uploaded_tags: {
+        ETag: string;
+        PartNumber: number;
       }[] = [];
       for (let i = 0; i < chunk_count; i++) {
         const start = i * chunk_count;
@@ -176,6 +189,75 @@ export class AwsService {
       await client.send(putObjectCommand);
     } catch (e) {
       console.log(e);
+    }
+  }
+
+  public async createMultiPartUpload(key: string) {
+    try {
+      const createMultipartUploadCommand = new CreateMultipartUploadCommand({
+        Bucket: process.env.AWS_BUCKET as string,
+        Key: key,
+      });
+      const startUploadResponse = await client.send(
+        createMultipartUploadCommand
+      );
+      const uploadId = startUploadResponse.UploadId;
+      return uploadId;
+    } catch (e) {
+      console.log(e);
+      throw new Error();
+    }
+  }
+
+  public async generatePreSignedUrlForMultiPartUpload(
+    key: string,
+    uploadId: string,
+    part_number: number
+  ) {
+    try {
+      const presignedUrl = await getSignedUrl(
+        client,
+        new UploadPartCommand({
+          Bucket: process.env.AWS_BUCKET as string,
+          Key: key,
+          UploadId: uploadId,
+          PartNumber: part_number,
+        }),
+        {}
+      );
+      return presignedUrl;
+    } catch (e) {
+      console.log(e);
+      throw new Error();
+    }
+  }
+
+  public async completeMultiPartUploadWithPreSignedUrl(
+    key: string,
+    uploadId: string,
+    completedParts: {
+      ETag: string;
+      PartNo: number;
+    }[]
+  ) {
+    try {
+      const completeUploadInput = {
+        Key: key,
+        Bucket: process.env.AWS_BUCKET as string,
+        UploadId: uploadId,
+        MultipartUpload: {
+          Parts: completedParts.map((x) => {
+            return { ETag: x.ETag, PartNumber: x.PartNo };
+          }),
+        },
+      };
+      const completeMultipartUploadCommand = new CompleteMultipartUploadCommand(
+        completeUploadInput
+      );
+      await client.send(completeMultipartUploadCommand);
+    } catch (e) {
+      console.log(e);
+      throw new Error();
     }
   }
 

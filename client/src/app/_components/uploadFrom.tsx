@@ -6,6 +6,21 @@ type Props = {};
 export default function UploadForm({}: Props) {
   const [file, setFile] = useState<FileList | null>();
 
+  async function uploadPart(
+    fileChunk: Blob,
+    presignedUrl: string,
+    partNo: number
+  ) {
+    const uploadResponse = await fetch(presignedUrl, {
+      method: "PUT",
+      body: fileChunk,
+    });
+
+    return {
+      value: { ETag: uploadResponse.headers.get("ETag") ?? "", PartNo: partNo },
+    };
+  }
+
   // const submitForm = async (e: React.FormEvent<HTMLFormElement>) => {
   //   e.preventDefault();
   //   const formData: FormData = new FormData();
@@ -30,62 +45,52 @@ export default function UploadForm({}: Props) {
     if (file) {
       const filename = file[0].name;
       const key = filename;
-      console.log(filename);
       const response_1 = await axios.post(
-        "http://localhost:8000/upload/getUplloadMultipartId",
+        "http://localhost:8000/upload/beginMultiPartUpload",
         {
-          filename,
-          key
+          key,
         }
       );
-      const id = response_1.data.id;
-      console.log(id);
+      const uploadId = response_1.data.uploadId;
       // Do uploads for chunks
       const chunk_size = 1024 * 1024 * 20;
       const file_size = file[0].size;
       const totalChunks = Math.ceil(file_size / chunk_size);
-      const promises = [];
       const response_chunk_data: {
         ETag: string;
-        PartNumber: number;
+        PartNo: number;
       }[] = [];
-      let start = 0;
-      console.log("The Chunk Count is :", totalChunks);
+      const preSignedUrls = [];
       for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
-        const chunk = file[0].slice(start, start + chunk_size);
-        start += chunk_size;
-        const formData = new FormData();
-        formData.append("chunk", chunk);
-        formData.append("id", id);
-        formData.append("key", key);
-        formData.append("part_number", `${chunkIndex + 1}`);
-        const promise = axios.post(
-          "http://localhost:8000/upload/uploadChunk",
-          formData,
+        const response_2 = await axios.post(
+          "http://localhost:8000/upload/getPartPreSignedUrl",
           {
-            headers: {
-              "Content-Type": "multipart/form-data",
-            },
+            key,
+            uploadId,
+            partNumber: chunkIndex + 1,
           }
         );
-        promises.push(promise);
+        const preSignedUrl = await response_2.data.url;
+        preSignedUrls.push(preSignedUrl);
       }
-      const response = await Promise.all(promises);
-      response.forEach((response) => {
-        const x = response.data;
-        const y = {
-          ETag: x.ETag.replace(/"/g, '') as string,
-          PartNumber: parseInt(x.PartNumber as string) as number,
-        }
-        response_chunk_data.push(y);
-      });
+      const uploadArray = [];
+      let start = 0;
+      for(let chunkIndex = 0; chunkIndex < totalChunks ; chunkIndex++){
+        const chunk = file[0].slice(start,start + chunk_size);
+        start += chunk_size;
+        uploadArray.push(uploadPart(chunk,preSignedUrls[chunkIndex],chunkIndex+1));
+      }
+      const uploadResponses = await Promise.all(uploadArray);
+      uploadResponses.map(u => {
+        response_chunk_data.push(u.value);
+      })
       // Call the api for completing the multi-part upload
       const response_2 = await axios.post(
         "http://localhost:8000/upload/uploadComplete",
         {
           key,
-          id,
-          uploaded_tags: response_chunk_data,
+          uploadId,
+          uploadedTags: response_chunk_data,
         }
       );
     } else {
