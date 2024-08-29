@@ -98,6 +98,9 @@ export default function UploadForm({}: Props) {
           author
         }
       );
+      setAuthor('');
+      setTitle('');
+      setDescription('');
     } else {
       alert("Please select a file");
     }

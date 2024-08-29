@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import { AwsService } from "../utils/AwsManager";
 import path from "path";
 import prisma from "../db";
+import KafkaManager from "../utils/KafkaManager";
+import { IHeaders } from "kafkajs";
 
 export const doMultiPartUpload = async (req: Request, res: Response) => {
   try {
@@ -140,6 +142,21 @@ export const completeMultipartUpload = async (req: Request, res: Response) => {
         url,
       },
     });
+    // After uploading to s3 publish a message using kafka instance
+    const message:
+      {
+        key?: Buffer | string | null;
+        value: Buffer | string | null;
+        partition?: number;
+        headers?: IHeaders;
+        timestamp?: string;
+      }
+    = {
+      value: JSON.stringify({
+         file_name: key
+      })
+    }
+    await KafkaManager.getInstance().publish('transcode',message);
     return res.status(200).json({
       message: "Upload Completed Successfylly",
     });
